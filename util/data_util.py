@@ -16,10 +16,14 @@ def sa_create(name, var):
 
 def collate_fn(batch):
     coord, feat, label = list(zip(*batch))
+    # _, coord, feat, label = list(zip(*batch))
+    # return torch.cat(coord), torch.cat(feat), torch.cat(label), torch.IntTensor([1])
+    
     offset, count = [], 0
     for item in coord:
         count += item.shape[0]
         offset.append(count)
+    # offset = [0]
     return torch.cat(coord), torch.cat(feat), torch.cat(label), torch.IntTensor(offset)
 
 

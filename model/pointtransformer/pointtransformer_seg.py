@@ -158,7 +158,18 @@ class PointTransformerSeg(nn.Module):
 
     def forward(self, pxo):
         p0, x0, o0 = pxo  # (n, 3), (n, c), (b)
+        # print('== BEFORE ==')
+        # print('p0 : ', p0.shape)
+        # print('x0 : ', x0.shape)
+        # print('o0 : ', o0.shape)
+        # print()
         x0 = p0 if self.c == 3 else torch.cat((p0, x0), 1)
+        # print('== AFTER ==')
+        # print('p0 : ', p0.shape)
+        # print('x0 : ', x0.shape)
+        # print('o0 : ', o0.shape)
+        # print('o0 value : ', o0)
+        # print()
         p1, x1, o1 = self.enc1([p0, x0, o0])
         p2, x2, o2 = self.enc2([p1, x1, o1])
         p3, x3, o3 = self.enc3([p2, x2, o2])
@@ -169,6 +180,8 @@ class PointTransformerSeg(nn.Module):
         x3 = self.dec3[1:]([p3, self.dec3[0]([p3, x3, o3], [p4, x4, o4]), o3])[1]
         x2 = self.dec2[1:]([p2, self.dec2[0]([p2, x2, o2], [p3, x3, o3]), o2])[1]
         x1 = self.dec1[1:]([p1, self.dec1[0]([p1, x1, o1], [p2, x2, o2]), o1])[1]
+        # print('decoder output : ', x1.shape)
+        # print('decoder output : ', x1.shape)
         x = self.cls(x1)
         return x
 

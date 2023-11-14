@@ -1,0 +1,14 @@
+/home/jeeheon/anaconda3/envs/ppf/lib/python3.8/site-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.16.5 and <1.23.0 is required for this version of SciPy (detected version 1.24.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+/home/jeeheon/anaconda3/envs/ppf/lib/python3.8/site-packages/torch/nn/_reduction.py:42: UserWarning: size_average and reduce args will be deprecated, please use reduction='none' instead.
+  warnings.warn(warning.format(ret))
+[2023-10-24 22:14:51,794 INFO train_registration.py line 113 4341] => creating model ...
+INFO - 2023-10-24 22:14:51,794 - train_registration - => creating model ...
+[2023-10-24 22:14:51,794 INFO train_registration.py line 149 4341] train_data samples: '10'
+INFO - 2023-10-24 22:14:51,794 - train_registration - train_data samples: '10'
+[2023-10-24 22:14:51,795 INFO train_registration.py line 204 4341] === TRAINING ===
+INFO - 2023-10-24 22:14:51,795 - train_registration - === TRAINING ===
+[2023-10-24 22:15:17,928 INFO train_registration.py line 270 4341]  1 / 10 => Total loss : 0.2641629011542909 
+INFO - 2023-10-24 22:15:17,928 - train_registration -  1 / 10 => Total loss : 0.2641629011542909 
+[2023-10-24 22:15:36,039 INFO train_registration.py line 270 4341]  2 / 10 => Total loss : 0.08965438910931217 
+INFO - 2023-10-24 22:15:36,039 - train_registration -  2 / 10 => Total loss : 0.08965438910931217 

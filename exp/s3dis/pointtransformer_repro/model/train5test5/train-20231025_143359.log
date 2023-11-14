@@ -1,0 +1,9 @@
+/home/jeeheon/anaconda3/envs/ppf/lib/python3.8/site-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.16.5 and <1.23.0 is required for this version of SciPy (detected version 1.24.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+/home/jeeheon/anaconda3/envs/ppf/lib/python3.8/site-packages/torch/nn/_reduction.py:42: UserWarning: size_average and reduce args will be deprecated, please use reduction='none' instead.
+  warnings.warn(warning.format(ret))
+INFO - 2023-10-25 14:34:02,360 - test_registration - => creating model ...
+INFO - 2023-10-25 14:34:02,525 - test_registration - => loaded weight : '/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/model_best.pth'
+INFO - 2023-10-25 14:34:02,525 - test_registration - => loaded weight : '/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/model_best.pth'
+INFO - 2023-10-25 14:34:02,525 - test_registration - train_data samples: '10'
+INFO - 2023-10-25 14:34:02,526 - test_registration - === TRAINING ===

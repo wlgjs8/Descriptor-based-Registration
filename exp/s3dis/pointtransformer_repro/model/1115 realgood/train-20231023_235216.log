@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "exp///train_registration.py", line 381, in <module>
+    main()
+  File "exp///train_registration.py", line 59, in main
+    args = get_parser()
+  File "exp///train_registration.py", line 33, in get_parser
+    cfg = config.load_cfg_from_cfg_file(args.config)
+  File "/home/jeeheon/Documents/point-transformer/util/config.py", line 62, in load_cfg_from_cfg_file
+    assert os.path.isfile(file) and file.endswith('.yaml'), \
+AssertionError: config//_.yaml is not a yaml file
