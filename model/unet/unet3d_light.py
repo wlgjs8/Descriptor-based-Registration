@@ -156,16 +156,14 @@ class UpConv3DBlock(nn.Module):
 
 class UNet3D(nn.Module):
     # def __init__(self, in_channels=1, level_channels=[64, 128, 256, 512], bottleneck_channel=1024) -> None:
-    def __init__(self, in_channels=1, level_channels=[32, 64, 128, 256], bottleneck_channel=512) -> None:
+    def __init__(self, in_channels=1, level_channels=[32, 64, 128], bottleneck_channel=256) -> None:
         super(UNet3D, self).__init__()
-        level_1_chnls, level_2_chnls, level_3_chnls, level_4_chnls = level_channels[0], level_channels[1], level_channels[2], level_channels[3]
+        level_1_chnls, level_2_chnls, level_3_chnls = level_channels[0], level_channels[1], level_channels[2]
         self.a_block1 = Conv3DBlock(in_channels=in_channels, out_channels=level_1_chnls)
         self.a_block2 = Conv3DBlock(in_channels=level_1_chnls, out_channels=level_2_chnls)
         self.a_block3 = Conv3DBlock(in_channels=level_2_chnls, out_channels=level_3_chnls)
-        self.a_block4 = Conv3DBlock(in_channels=level_3_chnls, out_channels=level_4_chnls)
-        self.bottleNeck = Conv3DBlock(in_channels=level_4_chnls, out_channels=bottleneck_channel, bottleneck= True)
-        self.s_block4 = UpConv3DBlock(in_channels=bottleneck_channel, res_channels=level_4_chnls)
-        self.s_block3 = UpConv3DBlock(in_channels=level_4_chnls, res_channels=level_3_chnls)
+        self.bottleNeck = Conv3DBlock(in_channels=level_3_chnls, out_channels=bottleneck_channel, bottleneck= True)
+        self.s_block3 = UpConv3DBlock(in_channels=bottleneck_channel, res_channels=level_3_chnls)
         self.s_block2 = UpConv3DBlock(in_channels=level_3_chnls, res_channels=level_2_chnls)
         self.s_block1 = UpConv3DBlock(in_channels=level_2_chnls, res_channels=level_1_chnls)
 
@@ -182,12 +180,10 @@ class UNet3D(nn.Module):
         out, residual_level1 = self.a_block1(input)
         out, residual_level2 = self.a_block2(out)
         out, residual_level3 = self.a_block3(out)
-        out, residual_level4 = self.a_block4(out)
 
         out, _ = self.bottleNeck(out)
 
         #Synthesis path forward feed
-        out = self.s_block4(out, residual_level4)
         out = self.s_block3(out, residual_level3)
         out = self.s_block2(out, residual_level2)
         out = self.s_block1(out, residual_level1)

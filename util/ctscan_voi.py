@@ -46,19 +46,6 @@ def load_mesh(filename):
     unique_vertices, indices = np.unique(vertices, axis=0, return_index=True)
     return unique_vertices
 
-def write_ply(filename, vertices):
-    with open(filename, 'w') as f:
-        f.write("ply\n")
-        f.write("format ascii 1.0\n")
-        f.write(f"element vertex {len(vertices)}\n")
-        f.write("property float x\n")
-        f.write("property float y\n")
-        f.write("property float z\n")
-        f.write("end_header\n")
-        
-        for vertex in vertices:
-            f.write(f"{vertex[0]} {vertex[1]} {vertex[2]}\n")
-
 class CTScanDataset_Center(Dataset):
     def __init__(self, split='train', transform=ct_transform):
         super().__init__()
@@ -111,6 +98,7 @@ class CTScanDataset_Center(Dataset):
         return coord, feat, label
         '''
 
+
         case_idx, flag = self.data_list[idx]
         print('Case : {}, Flag : {}'.format(case_idx, flag))
         CASE_DIR = os.path.join(self.DATA_DIR, case_idx)
@@ -134,12 +122,27 @@ class CTScanDataset_Center(Dataset):
         gradient_image = gradient_image.get_fdata()
         # print('gradient_image : ', gradient_image.shape)
 
-        scan_image = load_mesh(stl_file_path)
+        # scan_image = load_mesh(stl_file_path)
         # random_list = np.random.choice(scan_image.shape[0], 12000)
         # fps_sampling
 
-        if scan_image.shape[0]>self.SAMPLE_CNT:
-            scan_image = gu.resample_pcd([scan_image], self.SAMPLE_CNT, "fps")[0]
+        original_scan_image = trimesh.load_mesh(stl_file_path)
+
+        scan_normals = original_scan_image.vertex_normals
+        curvatures = np.linalg.norm(np.gradient(scan_normals, axis=0), axis=1)
+        mean_curvature = np.mean(curvatures)
+        high_curvature_indices = np.array(curvatures > mean_curvature)
+        high_curvature_vertices = original_scan_image.vertices[high_curvature_indices]
+        high_curvature_vertices = np.array(high_curvature_vertices)
+
+        if high_curvature_vertices.shape[0]>self.SAMPLE_CNT:
+            scan_image = gu.resample_pcd([high_curvature_vertices], self.SAMPLE_CNT, "fps")[0]
+            # scan_image, idx = gu.resample_pcd_with_idx([original_scan_image.vertices], self.SAMPLE_CNT, "fps")
+            # scan_image = np.array(scan_image)
+
+        # if scan_image.shape[0]>self.SAMPLE_CNT:
+        #     scan_image = gu.resample_pcd([scan_image], self.SAMPLE_CNT, "fps")[0]
+
         # data_sample = np.load('data_sample.npy')
         # scan_image = scan_image[data_sample]
 
@@ -301,11 +304,11 @@ class CTScanDataset_Center(Dataset):
             if gradient_image[spacing_w, spacing_h, spacing_d] < self.VIS_GRADIENT_THRESHOLD:
                 continue
             flag=False
-            if resized_d < 0 or resized_d > 127:
+            if resized_d < 1 or resized_d > 126:
                 flag = True
-            if resized_h < 0 or resized_h > 127:
+            if resized_h < 1 or resized_h > 126:
                 flag = True
-            if resized_w < 0 or resized_w > 127:
+            if resized_w < 1 or resized_w > 126:
                 flag = True
 
             if flag==False:

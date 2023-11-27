@@ -31,6 +31,7 @@ epoch_ranks*/
 rank_list*/
 lim_weights/
 datasets/
+exp*/
 
 *.pth
 *.pt

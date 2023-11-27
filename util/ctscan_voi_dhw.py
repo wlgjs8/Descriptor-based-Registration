@@ -128,6 +128,9 @@ class CTScanDataset_Center(Dataset):
         h_affine_coord = np.flip(h_affine_coord, 2) 
         w_affine_coord = np.flip(w_affine_coord, 2) 
 
+        # self.__ct2mesh__(ct_image, CASE_DIR)
+        # self.__gt_correspondence__(gradient_image, scan_image, [d_affine_coord, h_affine_coord, w_affine_coord], CASE_DIR, stl_file_path)
+
         matched_pair_gradient, out_of_range_list = self.__get_pt_and_gradient__(gradient_image, scan_image, [d_affine_coord, h_affine_coord, w_affine_coord])
         scan_image = scan_image[out_of_range_list]
         matched_pair_gradient = matched_pair_gradient[out_of_range_list]
@@ -148,7 +151,110 @@ class CTScanDataset_Center(Dataset):
 
         return ct_image, matched_pair_gradient, coord, feat, label, offset
 
+    def __ct2mesh__(self, resize_ct_image, SAVE_DIR):
+        otsu_ct_image = resize_ct_image
+        for i in range(2):
+            otsu_threshold = filters.threshold_otsu(otsu_ct_image[otsu_ct_image>0])
+            otsu_ct_index = otsu_ct_image > otsu_threshold
 
+            temp_arr = np.zeros(otsu_ct_image.shape)
+            temp_arr[otsu_ct_index == True] = otsu_ct_image[otsu_ct_index == True]
+            otsu_ct_image = temp_arr
+
+        otsu_ct_image[:, :, 75:] = 0
+        vertices, faces, _, _ = marching_cubes(otsu_ct_image, level=0.5)
+
+        stl_mesh = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
+
+        for i, f in enumerate(faces):
+            for j in range(3):
+                stl_mesh.vectors[i][j] = vertices[f[j], :]
+
+        # STL 파일로 저장
+        stl_mesh.save(os.path.join(SAVE_DIR, 'CT2Mesh_dataloader.stl'))
+
+    def __gt_correspondence__(self, gradient_image, scan_image, affine_coords, SAVE_DIR, stl_file_path, pixel_spacing=0.2, slice_spacing=0.2, ct_resize_shape=(128, 128, 128)):
+        matched_pair_gradient = []
+        matched_scan_image = []
+
+        original_shape = (224, 224, 224)
+        d_affine_coord, h_affine_coord, w_affine_coord = affine_coords
+
+        for i in range(len(scan_image)):
+            scan_x, scan_y, scan_d = scan_image[i]
+            spacing_d = scan_d * (1 / slice_spacing)
+            spacing_w = scan_x * (1 / pixel_spacing)
+            spacing_h = scan_y * (1 / pixel_spacing)
+
+            spacing_d = int(np.round(spacing_d))
+            spacing_h = int(np.round(spacing_h))
+            spacing_w = int(np.round(spacing_w))
+
+            affine_h = h_affine_coord[spacing_w][spacing_h][spacing_d]
+            affine_w = w_affine_coord[spacing_w][spacing_h][spacing_d]
+            affine_d = d_affine_coord[spacing_w][spacing_h][spacing_d]
+
+            affine_h = int(np.round(affine_h))
+            affine_w = int(np.round(affine_w))
+            affine_d = int(np.round(affine_d))
+
+            resized_h = affine_h * (ct_resize_shape[1] / original_shape[0])
+            resized_w = affine_w * (ct_resize_shape[2] / original_shape[1])
+            resized_d = affine_d * (ct_resize_shape[0] / original_shape[2])
+
+            resized_d = int(np.round(resized_d))
+            resized_h = int(np.round(resized_h))
+            resized_w = int(np.round(resized_w))
+
+            if gradient_image[spacing_w, spacing_h, spacing_d] < self.VIS_GRADIENT_THRESHOLD:
+                continue
+            flag=False
+            if resized_d < 1 or resized_d > 126:
+                flag = True
+            if resized_h < 1 or resized_h > 126:
+                flag = True
+            if resized_w < 1 or resized_w > 126:
+                flag = True
+
+            if flag==False:
+                matched_pair_gradient.append([resized_w, resized_h, 128-resized_d, gradient_image[spacing_w, spacing_h, spacing_d]])
+                matched_scan_image.append(scan_image[i])
+
+        matched_scan_image = np.array(matched_scan_image)
+        matched_pair_gradient = np.array(matched_pair_gradient)
+        # matched_scan_image, matched_pair_gradient[:, :3]
+        # gradient_mesh_index, gradient_ct_index
+
+        gradient_mesh_index = matched_scan_image
+        gradient_ct_index = matched_pair_gradient[:, :3]
+
+        mesh1 = trimesh.load(stl_file_path)
+        mesh2 = trimesh.load(os.path.join(SAVE_DIR, 'CT2Mesh_dataloader.stl'))
+
+        translation_vector = [100, 0, 0]
+        mesh2 = mesh2.apply_translation(translation_vector)
+        mesh1.visual.face_colors = [200, 200, 250, 100]
+        mesh2.visual.face_colors = [200, 200, 250, 100]
+
+        rand_index = np.random.choice(gradient_mesh_index.shape[0], size=self.VIS_SAMPLE_CNT, replace=False)
+        sampled_vertices1 = gradient_mesh_index[rand_index]
+        pc1 = Points(sampled_vertices1, r=self.VIS_RADIUS)
+        pc1.cmap("jet", list(range(len(sampled_vertices1))))
+
+        sampled_vertices2 = gradient_ct_index[rand_index]
+        sampled_vertices2 += translation_vector
+        pc2 = Points(sampled_vertices2, r=self.VIS_RADIUS)
+        pc2.cmap("jet", list(range(len(sampled_vertices2))))
+
+        lines = []
+        for p1, p2 in zip(sampled_vertices1, sampled_vertices2):
+            line = Line(p1, p2, c="green")
+            lines.append(line)
+        
+        # from vedo import Sphere
+        # figure = Sphere()
+        show([(mesh1, pc1, mesh2, pc2, lines)], N=1, bg="black", axes=0)
+        # show([(mesh1, pc1, mesh2, pc2, lines)], N=1, bg="black", axes=0, interactive=False, new=True, offscreen=True).screenshot(os.path.join(SAVE_DIR, 'gt_correspondence(30).png'))
 
     def __len__(self):
         # return len(self.data_idx) * self.loop

@@ -132,17 +132,6 @@ def resample_pcd(pcd_ls, n, method):
         pcd_resampled_ls.append(pcd_ls[i][idx[:n]])
     return pcd_resampled_ls
 
-def resample_pcd_with_idx(pcd_ls, n, method):
-    """Drop or duplicate points so that pcd has exactly n points"""
-    if method=="uniformly":
-        idx = np.random.permutation(pcd_ls[0].shape[0])
-    elif method == "fps":
-        idx = fps(pcd_ls[0][:,:3], n)
-    pcd_resampled_ls = []
-    for i in range(len(pcd_ls)):
-        pcd_resampled_ls.append(pcd_ls[i][idx[:n]])
-    return pcd_resampled_ls[0], idx
-
 def fps(xyz, npoint):
     if xyz.shape[0]<=npoint:
         raise "new fps error"
