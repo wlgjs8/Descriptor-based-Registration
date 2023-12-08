@@ -29,7 +29,7 @@ os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 # ct_transform = NormalizeIntensity(nonzero=True)
 ct_transform = Compose(
     [
-        # ThresholdIntensity(threshold=1000, above=True, cval=0.0),
+        ThresholdIntensity(threshold=1000, above=True, cval=0.0),
         # NormalizeIntensity(nonzero=True, channel_wise=True)
         NormalizeIntensity(nonzero=False, channel_wise=False)
     ]
@@ -66,14 +66,8 @@ class CTScanDataset_Center(Dataset):
             # self.case_list = ['Case_12', 'Case_14', 'Case_15']
             # self.case_list = ['Case_01', 'Case_03', 'Case_12', 'Case_14', 'Case_15']
             # self.case_list = ['Case_12', 'Case_14', 'Case_15']
-            # self.case_list = [
-            #     'Case_01', 'Case_03', 'Case_12', 'Case_14', 'Case_15', 
-            #     'Case_02', 'Case_09', 'Case_10', 'Case_11']
-            # self.case_list = [
-            #     'Case_03', 'Case_12', 'Case_14', 'Case_15', 
-            #     'Case_02', 'Case_09', 'Case_10', 'Case_11']
             self.case_list = [
-                'Case_12', 'Case_14', 'Case_15', 
+                'Case_01', 'Case_03', 'Case_12', 'Case_14', 'Case_15', 
                 'Case_02', 'Case_09', 'Case_10', 'Case_11']
 
         else:
@@ -116,6 +110,7 @@ class CTScanDataset_Center(Dataset):
         # ct_file_path = os.path.join(CASE_DIR, '{}_original_dcm_arr.nii.gz'.format(case_idx))
         ct_file_path = os.path.join(CASE_DIR, '{}_crop_image_concat.nii.gz'.format(case_idx))
         gradient_file_path = os.path.join(CASE_DIR, 'edge_gradient_normalize.nii.gz'.format(case_idx))
+        distancemap_file_path = os.path.join(CASE_DIR, '{}_crop_image_concat_distance_map.nii.gz'.format(case_idx))
 
         file_list = os.listdir(CASE_DIR)
         for single_file in file_list:
@@ -129,17 +124,20 @@ class CTScanDataset_Center(Dataset):
         ct_image = np.transpose(ct_image, (2, 1, 0))
         ct_image = np.flip(ct_image, 2)
 
-        otsu_ct_image = ct_image
+        distance_map_image = nib.load(distancemap_file_path)
+        distance_map_image = distance_map_image.get_fdata()
 
-        for i in range(1):
-            otsu_threshold = filters.threshold_otsu(otsu_ct_image[otsu_ct_image>0])
-            otsu_ct_index = otsu_ct_image > otsu_threshold
+        # otsu_ct_image = ct_image
 
-            temp_arr = np.zeros(ct_image.shape)
-            temp_arr[otsu_ct_index == True] = ct_image[otsu_ct_index == True]
-            otsu_ct_image = temp_arr
+        # for i in range(1):
+        #     otsu_threshold = filters.threshold_otsu(otsu_ct_image[otsu_ct_image>0])
+        #     otsu_ct_index = otsu_ct_image > otsu_threshold
 
-        ct_image = otsu_ct_image
+        #     temp_arr = np.zeros(ct_image.shape)
+        #     temp_arr[otsu_ct_index == True] = ct_image[otsu_ct_index == True]
+        #     otsu_ct_image = temp_arr
+
+        # ct_image = otsu_ct_image
 
         gradient_image = nib.load(gradient_file_path)
         gradient_image = gradient_image.get_fdata()
@@ -261,7 +259,7 @@ class CTScanDataset_Center(Dataset):
         # matched_pair_gradient = np.array(matched_pair_gradient)
         # print('matched_pair_gradient : ', np.mean(matched_pair_gradient))
 
-        return ct_image, matched_pair_gradient, coord, feat, label, offset
+        return ct_image, matched_pair_gradient, coord, feat, label, offset, distance_map_image
 
 
 

@@ -27,7 +27,8 @@ from einops import rearrange
 
 import utils
 from util import config
-from util.ctscan_voi_dhw import CTScanDataset_Center as CTScanDataset
+# from util.ctscan_voi_dhw import CTScanDataset_Center as CTScanDataset
+from util.ctscan_voi import CTScanDataset_Center as CTScanDataset
 
 from util.common_util import AverageMeter, intersectionAndUnionGPU, find_free_port
 from util.data_util import collate_fn
@@ -119,7 +120,9 @@ def main_worker(gpu, ngpus_per_node, argss):
 
     # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1115 realgood/model_best.pth')
     # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1116 gradient/model_best.pth')
-    checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1116 nogradient/model_best.pth')
+    # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1116 nogradient/model_best.pth')
+    checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1128 yes bite/model_best.pth')
+
     checkpoint = torch.load(checkpoint_path)
     ct_model.load_state_dict(checkpoint['state_dict_ct'], strict=True)
     scan_model.load_state_dict(checkpoint['state_dict_scan'], strict=True)
@@ -156,7 +159,7 @@ def validate(val_loader, ct_model, scan_model, criterion, epoch):
             matched_gradient = matched_gradient.cuda()
 
             coord, feat, target, offset = coord.cuda(non_blocking=True), feat.cuda(non_blocking=True), target.cuda(non_blocking=True), offset.cuda(non_blocking=True)
-            coord = coord[0]
+            coord = coord[0].float()
             feat = feat[0]
             target = target[0]
             offset = offset[0]
@@ -170,7 +173,7 @@ def validate(val_loader, ct_model, scan_model, criterion, epoch):
             sampled_ct_feature = ct_output[matched_pair[:, 0], matched_pair[:, 1], matched_pair[:, 2]]
             # sampled_ct_feature = sampled_ct_feature[matched_pair[:, 2], matched_pair[:, 1], matched_pair[:, 0]]
 
-            # utils.epoch_cal_rank_gradient(scan_output, coord, ct_output, matched_pair, matched_gradient, epoch)
+            utils.epoch_cal_rank_gradient(scan_output, coord, ct_output, matched_pair, matched_gradient, epoch)
             utils.pred_correspondence(scan_output, coord, ct_output, matched_pair, matched_gradient, epoch)
             # print('pred_correspondence_with_gt_top1_diff : pred_correspondence_with_gt_top1_diff')
             # utils.pred_correspondence_with_gt_top1_diff(scan_output, coord, ct_output, matched_pair, matched_gradient, matched_dhw)

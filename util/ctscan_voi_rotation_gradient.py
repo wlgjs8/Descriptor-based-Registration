@@ -103,15 +103,23 @@ class CTScanDataset_Center(Dataset):
         # scan_image = load_mesh(stl_file_path)
         original_scan_image = trimesh.load_mesh(stl_file_path)
 
+        print('original_scan_image.vertices : ', original_scan_image.vertices.shape)
+        print('original_scan_image.vertex_normals : ', original_scan_image.vertex_normals.shape)
+        
         scan_normals = original_scan_image.vertex_normals
         curvatures = np.linalg.norm(np.gradient(scan_normals, axis=0), axis=1)
         mean_curvature = np.mean(curvatures)
         high_curvature_indices = np.array(curvatures > mean_curvature)
+
         high_curvature_vertices = original_scan_image.vertices[high_curvature_indices]
-        high_curvature_vertices = np.array(high_curvature_vertices)
+
+        print('high_curvature_indices : ', high_curvature_indices.shape)
+        print('high_curvature_vertices : ', high_curvature_vertices.shape)
 
         if high_curvature_vertices.shape[0]>self.SAMPLE_CNT:
-            scan_image = gu.resample_pcd([high_curvature_vertices], self.SAMPLE_CNT, "fps")[0]
+            # scan_image = gu.resample_pcd([scan_image], self.SAMPLE_CNT, "fps")[0]
+            scan_image, idx = gu.resample_pcd_with_idx([high_curvature_vertices], self.SAMPLE_CNT, "fps")
+            scan_image = np.array(scan_image)
         
 
 
@@ -132,9 +140,33 @@ class CTScanDataset_Center(Dataset):
         w_affine_coord = np.transpose(w_affine_coord, (2, 1, 0))
         d_affine_coord = np.flip(d_affine_coord, 2) 
         h_affine_coord = np.flip(h_affine_coord, 2) 
-        w_affine_coord = np.flip(w_affine_coord, 2) 
+        w_affine_coord = np.flip(w_affine_coord, 2)
+        
 
-        matched_pair_gradient = self.__get_pt_and_gradient_rotation__(gradient_image, scan_image, [d_affine_coord, h_affine_coord, w_affine_coord])
+        '''
+        otsu_path = os.path.join(self.DATA_DIR, case_idx, '{}_original_dcm_arr.nii.gz'.format(case_idx))
+        otsu_image = nib.load(otsu_path)
+        otsu_image = otsu_image.get_fdata()
+        otsu_image = np.transpose(otsu_image, (2, 1, 0))
+        otsu_image = np.flip(otsu_image, 2)
+
+        otsu_ct_image = otsu_image
+
+        for i in range(1):
+            otsu_threshold = filters.threshold_otsu(otsu_ct_image[otsu_ct_image>0])
+            otsu_ct_index = otsu_ct_image > otsu_threshold
+
+            temp_arr = np.zeros(otsu_image.shape)
+            temp_arr[otsu_ct_index == True] = otsu_image[otsu_ct_index == True]
+            otsu_ct_image = temp_arr
+
+        otsu_image = otsu_ct_image
+        '''
+        gradient_path = os.path.join(self.DATA_DIR, case_idx, 'edge_gradient_normalize.nii.gz'.format(case_idx))
+        otsu_image = nib.load(gradient_path)
+        otsu_image = otsu_image.get_fdata()
+
+        matched_pair_gradient = self.__get_pt_and_gradient_rotation__(otsu_image, [d_affine_coord, h_affine_coord, w_affine_coord])
         
         # print('out_of_range_list[:,:3]  : ', out_of_range_list.shape)
         # print('out_of_range_list Faslse : ', out_of_range_list[out_of_range_list==False].shape)
@@ -180,14 +212,14 @@ class CTScanDataset_Center(Dataset):
         ct_image = self.transform(ct_image)
 
         # return ct_image, matched_pair_gradient, transformed_mesh, feat, label, offset
-        return ct_image, matched_pair_gradient, transformed_mesh, feat, label, offset, translation2origin
+        return ct_image, matched_pair_gradient, transformed_mesh, feat, label, offset, high_curvature_indices, translation2origin
 
     def __len__(self):
         # return len(self.data_idx) * self.loop
         return len(self.data_list)
 
 
-    def __get_pt_and_gradient_rotation__(self, gradient_image, scan_image, affine_coords, pixel_spacing=0.2, slice_spacing=0.2, ct_resize_shape=(128, 128, 128)):
+    def __get_pt_and_gradient_rotation__(self, otsu_image, affine_coords, pixel_spacing=0.2, slice_spacing=0.2, ct_resize_shape=(128, 128, 128)):
         ct_original_resize_pair = []
 
         original_shape = (224, 224, 224)
@@ -211,10 +243,15 @@ class CTScanDataset_Center(Dataset):
         # for vd in range(15, 55):
         #     for vh in range(15, 85):
         #         for vw in range(15, 85):
-        for vd in range(10, 60):
+        # for vd in range(10, 60):
+        # # for vd in range(60, 90):
+        #     for vh in range(10, 100):
+        #         for vw in range(10, 100):
+
+        for vd in range(0, 70):
         # for vd in range(60, 90):
-            for vh in range(10, 100):
-                for vw in range(10, 100):
+            for vh in range(0, 110):
+                for vw in range(0, 110):
                     
                     # scan_d, scan_x, scan_y = scan_image[i]
                     ct_d, ct_h, ct_w = vd, vh, vw
@@ -226,6 +263,10 @@ class CTScanDataset_Center(Dataset):
                     spacing_d = int(np.round(spacing_d))
                     spacing_h = int(np.round(spacing_h))
                     spacing_w = int(np.round(spacing_w))
+
+                    # if otsu_image[spacing_w][spacing_h][spacing_d] < 0.1:
+                    if otsu_image[spacing_w][spacing_h][spacing_d] < 0.015:
+                        continue
 
                     affine_h = h_affine_coord[spacing_w][spacing_h][spacing_d]
                     affine_w = w_affine_coord[spacing_w][spacing_h][spacing_d]

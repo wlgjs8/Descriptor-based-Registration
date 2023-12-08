@@ -130,8 +130,8 @@ def main_worker(gpu, ngpus_per_node, argss):
     optimizer1 = torch.optim.Adam(ct_model.parameters(), lr=1e-3)
     optimizer2 = torch.optim.Adam(scan_model.parameters(), lr=5e-2)
 
-    scheduler1 = lr_scheduler.MultiStepLR(optimizer1, milestones=[60, 200], gamma=0.1)
-    scheduler2 = lr_scheduler.MultiStepLR(optimizer2, milestones=[60, 200], gamma=0.1)
+    scheduler1 = lr_scheduler.MultiStepLR(optimizer1, milestones=[100, 200], gamma=0.1)
+    scheduler2 = lr_scheduler.MultiStepLR(optimizer2, milestones=[100, 200], gamma=0.1)
     # scheduler1 = lr_scheduler.MultiStepLR(optimizer1, milestones=[200], gamma=0.1)
     # scheduler2 = lr_scheduler.MultiStepLR(optimizer2, milestones=[200], gamma=0.1)
 
@@ -191,6 +191,8 @@ def main_worker(gpu, ngpus_per_node, argss):
         print('==>Training done!\nBest Iou: %.3f' % (best_distance))
 
 
+SAMPLING_CNT = 650
+
 def train(train_loader, ct_model, scan_model, criterion, optimizer1, optimizer2, epoch):
     ct_model.train()
     scan_model.train()
@@ -217,7 +219,7 @@ def train(train_loader, ct_model, scan_model, criterion, optimizer1, optimizer2,
         # print('matched_pair_gradient : ', matched_pair_gradient.shape)
 
         coord, feat, target, offset = coord.cuda(non_blocking=True), feat.cuda(non_blocking=True), target.cuda(non_blocking=True), offset.cuda(non_blocking=True)
-        coord = coord[0]
+        coord = coord[0].float()
         feat = feat[0]
         target = target[0]
         offset = offset[0]
@@ -273,28 +275,22 @@ def train(train_loader, ct_model, scan_model, criterion, optimizer1, optimizer2,
         #     neg_ctsample = flat_ct_feature[rand_indexs]
         #     neg_ctsamples.append(neg_ctsample)
         for ni in range(len(scan_output)):
-            rand_indices = torch.randint(0, len(flat_ct_feature), (500,), dtype=torch.long)
-            rand_indexs = torch.randint(0, len(matched_pair), (500,), dtype=torch.long)
+                rand_indices = torch.randint(0, len(flat_ct_feature), (SAMPLING_CNT,), dtype=torch.long).cuda()
+                indices = torch.cat((torch.arange(ni, dtype=torch.long), torch.arange(ni+1, len(matched_pair), dtype=torch.long))).cuda()
+                rand_indexs = indices[torch.randint(0, len(indices), (SAMPLING_CNT,))]
 
-            if ni in rand_indexs:
-                ridx = np.where(rand_indexs==ni)[0][0]
-                if ni > 0:
-                    rand_indexs[ridx] = rand_indexs[ridx - 1]
-                else:
-                    rand_indexs[ridx] = rand_indexs[ridx + 1]
+                neg_ctsample1 = flat_ct_feature[rand_indices]
+                neg_ctsample2 = sampled_ct_feature[rand_indexs]
 
-            neg_ctsample1 = flat_ct_feature[rand_indices]
-            neg_ctsample2 = sampled_ct_feature[rand_indexs]
-
-            neg_ctsample = torch.cat([neg_ctsample1, neg_ctsample2], dim=0)
-            neg_ctsamples.append(neg_ctsample)
+                neg_ctsample = torch.cat([neg_ctsample1, neg_ctsample2], dim=0)
+                neg_ctsamples.append(neg_ctsample)
 
         neg_ctsamples = torch.stack(neg_ctsamples, dim=0)
         # neg_ctsamples = sampled_ct_feature[neg_ct_index]
 
 
         loss = criterion(scan_anchor, pos_ctsample, neg_ctsamples)
-        # loss = loss * matched_gradient
+        loss = loss * matched_gradient
         loss = loss.mean()
 
         # loss = torch.norm(scan_output - sampled_ct_feature)
@@ -339,7 +335,7 @@ def validate(val_loader, ct_model, scan_model, criterion, epoch):
             matched_gradient = matched_gradient.cuda()
 
             coord, feat, target, offset = coord.cuda(non_blocking=True), feat.cuda(non_blocking=True), target.cuda(non_blocking=True), offset.cuda(non_blocking=True)
-            coord = coord[0]
+            coord = coord[0].float()
             feat = feat[0]
             target = target[0]
             offset = offset[0]
@@ -370,35 +366,11 @@ def validate(val_loader, ct_model, scan_model, criterion, epoch):
             flat_ct_feature = rearrange(ct_output, 'd h w c -> (d h w) c')
 
             neg_ctsamples = []
-            # for ni in range(len(scan_output)):
-            #     # rand_indexs = np.random.choice(len(matched_pair), 1000, replace=False)
-            #     rand_indexs = np.random.choice(len(flat_ct_feature), 1000, replace=False)
-            #     # rand_indexs = np.load('neg_sample.npy')
-            #     if ni in rand_indexs:
-            #         ridx = np.where(rand_indexs==ni)[0][0]
-            #         if ni > 0:
-            #             rand_indexs[ridx] = rand_indexs[ridx - 1]
-            #         else:
-            #             rand_indexs[ridx] = rand_indexs[ridx + 1]
-
-            #     neg_ctsample = flat_ct_feature[rand_indexs]
-                
-            #     neg_ctsamples.append(neg_ctsample)
-
-            # for ni in range(len(scan_output)):
-            #     rand_indices = torch.randint(0, len(flat_ct_feature), (1000,), dtype=torch.long)
-            #     neg_ctsample = flat_ct_feature[rand_indices]
-            #     neg_ctsamples.append(neg_ctsample)
+            
             for ni in range(len(scan_output)):
-                rand_indices = torch.randint(0, len(flat_ct_feature), (500,), dtype=torch.long)
-                rand_indexs = torch.randint(0, len(matched_pair), (500,), dtype=torch.long)
-                
-                if ni in rand_indexs:
-                    ridx = np.where(rand_indexs==ni)[0][0]
-                    if ni > 0:
-                        rand_indexs[ridx] = rand_indexs[ridx - 1]
-                    else:
-                        rand_indexs[ridx] = rand_indexs[ridx + 1]
+                rand_indices = torch.randint(0, len(flat_ct_feature), (SAMPLING_CNT,), dtype=torch.long).cuda()
+                indices = torch.cat((torch.arange(ni, dtype=torch.long), torch.arange(ni+1, len(matched_pair), dtype=torch.long))).cuda()
+                rand_indexs = indices[torch.randint(0, len(indices), (SAMPLING_CNT,))]
 
                 neg_ctsample1 = flat_ct_feature[rand_indices]
                 neg_ctsample2 = sampled_ct_feature[rand_indexs]
@@ -412,7 +384,7 @@ def validate(val_loader, ct_model, scan_model, criterion, epoch):
             # neg_ctsamples = sampled_ct_feature[neg_ct_index]
 
             loss = criterion(scan_anchor, pos_ctsample, neg_ctsamples)
-            # loss = loss * matched_gradient
+            loss = loss * matched_gradient
             loss = loss.mean()
             
             val_losses += loss.item()

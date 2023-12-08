@@ -355,7 +355,12 @@ def bef_cal_rank_gradient(sf, sc, cf, mp, mg):
 def epoch_cal_rank_gradient(sf, sc, cf, mp, mg, epoch):
     matched_gradient = mg.clone().detach()
 
-    MEAN_GRADIENT = torch.mean(matched_gradient)
+    # MEAN_GRADIENT = torch.mean(matched_gradient)
+    MEAN_GRADIENT = 0.6
+    # print('MEAN_GRADIENT : ', MEAN_GRADIENT)
+    # print('MEAN_GRADIENT : ', torch.max(matched_gradient))
+    # print('MEAN_GRADIENT : ', torch.min(matched_gradient))
+    
     scan_features = sf.clone().detach()
     scan_coords = sc.clone().detach()
     ct_features = cf.clone().detach()
@@ -426,7 +431,7 @@ def flatten_to_xyz_tensor(indices, array_size=128):
 def pred_correspondence(sf,sc,cf,mp,mg,epoch=None):
     matched_gradient = mg.clone().detach()
     # MEAN_GRADIENT = torch.mean(matched_gradient)
-    MEAN_GRADIENT = 0.5
+    MEAN_GRADIENT = 0.6
     scan_features = sf.clone().detach()
     scan_coords = sc.clone().detach()
     ct_features = cf.clone().detach()
@@ -570,8 +575,8 @@ def pred_correspondence_rotation(sf,sc,cf,mp,mg,epoch=None):
         line = Line(p1, p2, c="green")
         lines.append(line)
 
-    show([(mesh1, pc1, mesh2, pc2, lines)], N=1, bg="black", axes=0)
-    # show([(mesh1, pc1, mesh2, pc2, lines)], N=1, bg="black", axes=0, interactive=False, new=True, offscreen=True).screenshot('./epoch_correspondence/{}_pred_correspondence.png'.format(epoch))
+    # show([(mesh1, pc1, mesh2, pc2, lines)], N=1, bg="black", axes=0)
+    show([(mesh1, pc1, mesh2, pc2, lines)], N=1, bg="black", axes=0, interactive=False, new=True, offscreen=True).screenshot('./epoch_correspondence/{}_pred_correspondence.png'.format(epoch))
 
 
 def pred_correspondence_with_gt_top1_diff(sf,sc,cf,mp,mg,matched_dhw,epoch=None):
@@ -932,6 +937,10 @@ def iterative_closet_feature2(scan_points, scan_features, ct_points, ct_features
     # optimizer = torch.optim.Adam([translation], lr=0.1)
     # optimizer = torch.optim.Adam([translation], lr=0.01)
     optimizer = torch.optim.Adam([translation, rotation], lr=0.1)
+    # optimizer = torch.optim.SGD([translation, rotation], lr=0.1)
+    
+    import torch.optim.lr_scheduler as lr_scheduler
+    scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[2050], gamma=0.01)
     # optimizer = torch.optim.Adam([rotation], lr=0.01)
 
 
@@ -1006,9 +1015,12 @@ def iterative_closet_feature2(scan_points, scan_features, ct_points, ct_features
         # dist = torch.sum(dist)
         dist.backward()
         optimizer.step()
+        scheduler.step()
 
         if (iteration + 1) % (num_iterations//10) == 0:
             print(f"Iteration [{iteration+1}/{num_iterations}]: Distance = {dist.item()}")
+            current_lr = scheduler.get_lr()
+            print("CURRENT LEARNING RATE : ", current_lr)
 
             import os
             import trimesh
@@ -1030,6 +1042,8 @@ def iterative_closet_feature2(scan_points, scan_features, ct_points, ct_features
             # scan_image.vertices = predict_mesh
 
             scan_image.export('datasets/lower_registration/LOWER_Result_sota_predict_ifsp{}.stl'.format(iteration+1))
+
+
 
     import os
     import trimesh
@@ -1286,18 +1300,20 @@ def ransac_global_registration(scan_points, scan_features, ct_points, ct_feature
     # filtered_ct_points = ct_points[closest_indices[mask]]
 
 
-    scan_self_distance = torch.cdist(scan_features, scan_features)
-    scan_self_distance = scan_self_distance + torch.eye(scan_self_distance.size(0)).cuda() * 1e10
+    # scan_self_distance = torch.cdist(scan_features, scan_features)
+    # scan_self_distance = scan_self_distance + torch.eye(scan_self_distance.size(0)).cuda() * 1e10
 
-    min_self_distances = torch.min(scan_self_distance, dim=1).values
+    # min_self_distances = torch.min(scan_self_distance, dim=1).values
+    # # mask = min_self_distances < torch.mean(min_self_distances)
     # mask = min_self_distances < torch.mean(min_self_distances)
-    mask = min_self_distances < torch.mean(min_self_distances)
-    # mask = min_self_distances < 0.1
+    # # mask = min_self_distances < 0.1
 
 
 
-    filtered_scan_points = scan_points[mask]
-    filtered_ct_points = ct_points[closest_indices[mask]]
+    # filtered_scan_points = scan_points[mask]
+    # filtered_ct_points = ct_points[closest_indices[mask]]
+    filtered_scan_points = scan_points
+    filtered_ct_points = ct_points[closest_indices]
 
 
     # # RANSAC을 이용하여 최적의 Transformation 찾기
@@ -1311,7 +1327,11 @@ def ransac_global_registration(scan_points, scan_features, ct_points, ct_feature
 
     filtered_scan_points = filtered_scan_points.detach().cpu()
     filtered_ct_points = filtered_ct_points.detach().cpu()
-    ransac = RANSACRegressor().fit(filtered_scan_points.numpy(), filtered_ct_points.numpy())
+
+
+    ransac = RANSACRegressor(max_trials=1000).fit(filtered_scan_points.numpy(), filtered_ct_points.numpy())
+    # ransac = RANSACRegressor(stop_probability=0.5).fit(filtered_scan_points.numpy(), filtered_ct_points.numpy())
+
 
     # 최적의 Transformation 출력
     print("최적의 Transformation:")
@@ -1354,9 +1374,151 @@ def ransac_global_registration(scan_points, scan_features, ct_points, ct_feature
     scan_image.vertices = predict_mesh
 
     # scan_image.vertices = predict_mesh
-    scan_image.export('datasets/lower_registration/LOWER_Result_sota_predict_ransac_ssl.stl')
+    # scan_image.export('datasets/lower_registration/LOWER_Result_sota_predict_ransac_ssl.stl')
+    scan_image.export('datasets/lower_registration/LOWER_Result_sota_predict_ransac.stl')
+
 
     # # 최적화된 결과 출력
     # print("최적화된 Transformation:")
     # print("Translation:", translation.data)
     # # print("Rotation:", rotation.data)
+
+
+def ransac_global_registration_whole(scan_points, scan_features, ct_points, ct_features, translation2origin):
+
+    from sklearn.linear_model import RANSACRegressor
+    from sklearn.preprocessing import StandardScaler
+
+    # 입력 데이터 설정
+    # num_points = 12000
+    # scan_points = torch.randn(num_points, 3)  # Scan의 x, y, z 좌표
+    # scan_features = torch.randn(num_points, 32)  # Scan의 Feature
+
+    # ct_points = torch.randn(num_points, 3)  # CT의 x, y, z 좌표
+    # ct_features = torch.randn(num_points, 32)  # CT의 Feature
+
+    print('scan_points : ', scan_points.shape)
+    print('scan_features : ', scan_features.shape)
+    print('ct_points : ', ct_points.shape)
+    print('ct_points0 : ', torch.max(ct_points[:, 0]))
+    print('ct_points1 : ', torch.max(ct_points[:, 1]))
+    print('ct_points2 : ', torch.max(ct_points[:, 2]))
+    print('ct_features : ', ct_features.shape)
+
+    ct_points = torch.tensor(ct_points.detach().cpu().numpy()[:, [2, 1, 0]]).cuda()
+    # Scan과 CT의 Feature 간 유사도 계산
+
+    feature_distances = torch.cdist(scan_features, ct_features)  # Feature 간 거리 계산
+    closest_indices = torch.argmin(feature_distances, dim=1)  # 가장 가까운 CT Feature의 인덱스 찾기
+
+    # # 가장 가까운 CT Feature에 해당하는 CT Point 선택
+    # closest_ct_points = ct_points[closest_indices]
+
+    # FEATURE_THRESHOLD = torch.mean(feature_distances)
+    # print('FEATURE_THRESHOLD : ', FEATURE_THRESHOLD)
+    # mask = torch.min(feature_distances, dim=1).values < FEATURE_THRESHOLD
+    # filtered_scan_points = scan_points[mask]
+    # filtered_ct_points = ct_points[closest_indices[mask]]
+
+
+    scan_self_distance = torch.cdist(scan_features, scan_features)
+    scan_self_distance = scan_self_distance + torch.eye(scan_self_distance.size(0)).cuda() * 1e10
+
+    min_self_distances = torch.min(scan_self_distance, dim=1).values
+    # mask = min_self_distances < torch.mean(min_self_distances)
+    mask = min_self_distances < (torch.mean(min_self_distances) - 0.02)
+    print('torch.mean(min_self_distances) : ',torch.mean(min_self_distances))
+    # mask = min_self_distances < 0.1
+
+
+    # mask = np.random.choice(len(scan_points), 3)
+
+    # filtered_scan_points = scan_points[mask]
+    # filtered_ct_points = ct_points[closest_indices[mask]]
+    # # filtered_scan_points = scan_points
+    # # filtered_ct_points = ct_points[closest_indices]
+
+
+    # # # RANSAC을 이용하여 최적의 Transformation 찾기
+    # # scan_points = scan_points.detach().cpu()
+    # # closest_ct_points = closest_ct_points.detach().cpu()
+    # # ransac = RANSACRegressor().fit(scan_points.numpy(), closest_ct_points.numpy())
+    
+    # # RANSAC을 이용하여 최적의 Transformation 찾기
+    # print('filtered_scan_points : ', filtered_scan_points.shape)
+    # print('filtered_ct_points : ', filtered_ct_points.shape)
+
+    # filtered_scan_points = filtered_scan_points.detach().cpu()
+    # filtered_ct_points = filtered_ct_points.detach().cpu()
+
+
+    for random_state in range(100):
+
+        # mask = np.random.choice(len(scan_points), 1000)
+
+        filtered_scan_points = scan_points[mask]
+        filtered_ct_points = ct_points[closest_indices[mask]]
+        # filtered_scan_points = scan_points
+        # filtered_ct_points = ct_points[closest_indices]
+
+
+        # # RANSAC을 이용하여 최적의 Transformation 찾기
+        # scan_points = scan_points.detach().cpu()
+        # closest_ct_points = closest_ct_points.detach().cpu()
+        # ransac = RANSACRegressor().fit(scan_points.numpy(), closest_ct_points.numpy())
+        
+        # RANSAC을 이용하여 최적의 Transformation 찾기
+        print('filtered_scan_points : ', filtered_scan_points.shape)
+        print('filtered_ct_points : ', filtered_ct_points.shape)
+
+        filtered_scan_points = filtered_scan_points.detach().cpu()
+        filtered_ct_points = filtered_ct_points.detach().cpu()
+
+        ransac = RANSACRegressor(random_state=random_state).fit(filtered_scan_points.numpy(), filtered_ct_points.numpy())
+        # ransac = RANSACRegressor(max_trials=1000, random_state=random_state).fit(filtered_scan_points.numpy(), filtered_ct_points.numpy())
+        # ransac = RANSACRegressor(stop_probability=0.5).fit(filtered_scan_points.numpy(), filtered_ct_points.numpy())
+
+
+        # 최적의 Transformation 출력
+        print("최적의 Transformation:")
+        print("Estimator coefficients (rotation):", ransac.estimator_.coef_)
+        print("Estimator intercept (translation):", ransac.estimator_.intercept_)
+
+        import os
+        import trimesh
+        
+        CUR_DIR = os.getcwd()
+        # stl_file_path = os.path.join(CUR_DIR, 'datasets/lower_registration/LOWER_Result_sota.stl')
+        stl_file_path = os.path.join(CUR_DIR, 'datasets/lower_registration/LOWER_Result_sota_augment_nottrans.stl')
+        scan_image = trimesh.load_mesh(stl_file_path)
+        # trans_bef = np.mean(scan_image.vertices)
+        # trans_bef = np.mean(scan_image.vertices, axis=0)
+
+        # print('trans_bef : ', trans_bef)
+        # print('np.mean(scan_image[:,:3], axis=0) : ', np.mean(scan_image.vertices, axis=0))
+
+        scan_image.vertices -= translation2origin
+
+        # rotation_mat = rotation.detach().cpu().numpy()
+        # translation_mat = translation.detach().cpu().numpy()
+        # rotation_mat = ransac.estimator_.coef_
+        transform_matrix = ransac.estimator_.coef_
+        U, S, Vt = np.linalg.svd(transform_matrix)
+        rotation_mat = np.matmul(U, Vt)
+
+        translation_mat = ransac.estimator_.intercept_
+
+
+        predict_mesh = np.matmul(scan_image.vertices, rotation_mat)
+        # predict_mesh = np.matmul(scan_image.vertices, np.linalg.inv(rotation_mat).T)
+        # predict_mesh = np.add(scan_image.vertices, translation_mat)
+        # predict_mesh = np.add(predict_mesh, translation_mat)
+        predict_mesh = predict_mesh + translation_mat
+
+
+        # scan_image.vertices = predict_mesh + trans_bef
+        scan_image.vertices = predict_mesh
+
+        # scan_image.vertices = predict_mesh
+        # scan_image.export('datasets/lower_registration/LOWER_Result_sota_predict_ransac_ssl.stl')
+        scan_image.export('datasets/lower_registration/random_state/LOWER_Result_sota_predict_ransac_{}.stl'.format(random_state))

@@ -4,7 +4,7 @@ export PYTHONPATH=./
 eval "$(conda shell.bash hook)"
 PYTHON=python
 
-TRAIN_CODE=train.py
+TRAIN_CODE=test_dt_negative.py
 TEST_CODE=test.py
 
 dataset=$1
@@ -20,8 +20,13 @@ mkdir -p ${result_dir}/best
 cp tool/train.sh tool/${TRAIN_CODE} ${config} tool/test.sh tool/${TEST_CODE} ${exp_dir}
 
 
+# now=$(date +"%Y%m%d_%H%M%S")
+# $PYTHON ${exp_dir}/${TRAIN_CODE} \
+#   --config=${config} \
+#   save_path ${exp_dir} \
+#   2>&1 | tee ${exp_dir}/train-$now.log
+
 now=$(date +"%Y%m%d_%H%M%S")
 $PYTHON ${exp_dir}/${TRAIN_CODE} \
   --config=${config} \
-  save_path ${exp_dir} \
-  2>&1 | tee ${exp_dir}/train-$now.log
+  save_path ${exp_dir}

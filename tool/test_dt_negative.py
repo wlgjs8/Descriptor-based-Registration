@@ -27,14 +27,15 @@ from einops import rearrange
 
 import utils
 from util import config
-# from util.ctscan_voi_rotation import CTScanDataset_Center as CTScanDataset
-from util.ctscan_voi_rotation_gradient import CTScanDataset_Center as CTScanDataset
+# from util.s3dis import S3DIS
+from util.ct_scan_dt import CTScanDataset_Center as CTScanDataset
 
 from util.common_util import AverageMeter, intersectionAndUnionGPU, find_free_port
 from util.data_util import collate_fn
 from util import transform as t
 
-from info_nce import InfoNCE
+# from info_nce import InfoNCE
+from loss.infonce import InfoNCE
 
 
 def get_parser():
@@ -118,13 +119,12 @@ def main_worker(gpu, ngpus_per_node, argss):
 
     criterion = InfoNCE(reduction='none', negative_mode='paired')
 
+    # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1115 realgood/model_best.pth')
+    # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1116 gradient/model_best.pth')
     # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1116 nogradient/model_best.pth')
-    # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1117 contrastive/model_best.pth')
-    # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1125 sigmoid/model_best.pth')
-    # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1125 gradient/model_best.pth')
-    # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1126 gradient2/model_best.pth')
-    
-    
+    # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1130 weight0.7/model_best.pth')
+    # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1130 weight0.7/model_best.pth')
+
     checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1128 yes bite/model_best.pth')
     # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1129 dt/model_best.pth')
     # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1130 weight0.7/model_best.pth')
@@ -149,8 +149,8 @@ def main_worker(gpu, ngpus_per_node, argss):
 
 
 def validate(val_loader, ct_model, scan_model, criterion, epoch):
-    # ct_model.train()
-    # scan_model.train()
+    # ct_model.eval()
+    # scan_model.eval()
     ct_model.train()
     scan_model.train()
     val_losses = 0
@@ -158,66 +158,101 @@ def validate(val_loader, ct_model, scan_model, criterion, epoch):
 
     print('=== VALIDATION ===')
 
-    # with torch.no_grad():
-    # for i, (ct_image, matched_pair_gradient, coord, feat, target, offset) in enumerate(val_loader):  # (n, 3), (n, c), (n), (b)
-    for i, (ct_image, matched_pair_gradient, coord, feat, target, offset, high_curvature_indices, translation2origin) in enumerate(val_loader):  # (n, 3), (n, c), (n), (b)
-        ct_image = ct_image.cuda(non_blocking=True).unsqueeze(0)
-        matched_pair_gradient = matched_pair_gradient.squeeze(0)
-        matched_pair = matched_pair_gradient[:, :3]
-        matched_xyz = matched_pair_gradient[:, 3:]
-        matched_pair = matched_pair.type(torch.long)
-        high_curvature_indices = high_curvature_indices.squeeze(0).cuda()
-        translation2origin = translation2origin.squeeze(0).numpy()
-        # matched_gradient = matched_gradient.cuda()
+    with torch.no_grad():
+        for i, (ct_image, matched_pair_gradient, coord, feat, target, offset, distance_map_image) in enumerate(val_loader):  # (n, 3), (n, c), (n), (b)
+            ct_image = ct_image.cuda(non_blocking=True).unsqueeze(0)
+            matched_pair_gradient = matched_pair_gradient.squeeze(0)
+            matched_pair, matched_gradient = matched_pair_gradient[:, :3], matched_pair_gradient[:, 3:]
+            matched_pair = matched_pair.type(torch.long).cuda()
+            matched_gradient = matched_gradient.cuda()
+            distance_map_image = distance_map_image.cuda().squeeze(0)
 
-        coord, feat, target, offset = coord.cuda(non_blocking=True), feat.cuda(non_blocking=True), target.cuda(non_blocking=True), offset.cuda(non_blocking=True)
-        coord = coord[0].float()
-        feat = feat[0]
-        target = target[0]
-        offset = offset[0]
+            coord, feat, target, offset = coord.cuda(non_blocking=True), feat.cuda(non_blocking=True), target.cuda(non_blocking=True), offset.cuda(non_blocking=True)
+            coord = coord[0].float()
+            feat = feat[0]
+            target = target[0]
+            offset = offset[0]
 
-        target = target.long()
-        scan_output = scan_model([coord, feat, offset])
-        ct_image = ct_image.as_tensor()
-        ct_output = ct_model(ct_image)
+            target = target.long()
+            scan_output = scan_model([coord, feat, offset])
+            ct_image = ct_image.as_tensor()
+            ct_output = ct_model(ct_image)
 
-        ct_output = ct_output.squeeze(0).permute(1, 2, 3, 0)
-        # print('bef ct_output : ', ct_output.requires_grad)
-        
-        # ct_output.requires_grad_(False)
-        # scan_output = scan_output.detach()
-        # ct_output = ct_output.detach()
-        # coord = coord.detach()
-        # feat = feat.detach()
-        # offset = offset.detach()
-        # matched_xyz = matched_xyz.detach()
-        # matched_pair = matched_pair.detach()
-        
-        # print('aft ct_output : ', ct_output.requires_grad)
-        # sampled_ct_feature = ct_output[matched_pair[:, 0], matched_pair[:, 1], matched_pair[:, 2]]
-        dense_ct_feature = ct_output[matched_pair[:, 0], matched_pair[:, 1], matched_pair[:, 2]]
-        # sampled_ct_feature = sampled_ct_feature[matched_pair[:, 2], matched_pair[:, 1], matched_pair[:, 0]]
+            ct_output = ct_output.squeeze(0).permute(1, 2, 3, 0)
+            sampled_ct_feature = ct_output[matched_pair[:, 0], matched_pair[:, 1], matched_pair[:, 2]]
+            # sampled_ct_feature = sampled_ct_feature[matched_pair[:, 2], matched_pair[:, 1], matched_pair[:, 0]]
 
-        # utils.pred_correspondence_rotation(scan_output, coord, ct_output, matched_pair, matched_gradient, epoch)
+            print('epoch_cal_rank_gradient : ')
+            utils.epoch_cal_rank_gradient(scan_output, coord, ct_output, matched_pair, matched_gradient, epoch)
+            utils.pred_correspondence(scan_output, coord, ct_output, matched_pair, matched_gradient, epoch)
 
-        # print('bef : ', coord.shape)
-        # print('aft : ', coord[high_curvature_indices].shape)
-        # utils.iterative_closet_feature(coord[high_curvature_indices], scan_output[high_curvature_indices], matched_xyz, dense_ct_feature, translation2origin)
-        # utils.iterative_closet_feature2(coord[high_curvature_indices], scan_output[high_curvature_indices], matched_xyz, dense_ct_feature, translation2origin)
-        # utils.iterative_closet_feature2(coord, scan_output, matched_xyz, dense_ct_feature, translation2origin)
-        # utils.iterative_closet_feature_selfsimilarity(coord[high_curvature_indices], scan_output[high_curvature_indices], matched_xyz, dense_ct_feature, translation2origin)
-        # utils.ransac_global_registration(coord[high_curvature_indices], scan_output[high_curvature_indices], matched_xyz, dense_ct_feature, translation2origin)
-        # utils.ransac_global_registration(coord, scan_output, matched_xyz, dense_ct_feature, translation2origin)
-        utils.ransac_global_registration_whole(coord, scan_output, matched_xyz, dense_ct_feature, translation2origin)
+            scan_anchor = scan_output
+            pos_ctsample = sampled_ct_feature
 
+            # print('sampled_scan_feature : ', scan_output[:3])
+            # print('sampled_ct_feature : ', sampled_ct_feature[:3])
+            # print()
 
+            # loss = criterion(scan_anchor, pos_ctsample)
+            # flat_ct_feature = rearrange(ct_output, 'd h w c -> (d h w) c')
+            flat_ct_feature = rearrange(ct_output, 'd h w c -> (d h w) c')
 
+            neg_ctsamples = []
+            # negative_distances = []
+            neg_weights = []
 
+            for ni in range(len(scan_output)):
+                rand_indices = torch.randint(0, len(flat_ct_feature), (500,), dtype=torch.long).cuda()
+                # rand_indices = torch.randperm(len(flat_ct_feature), dtype=torch.long)[:500].cuda()
+                # rand_indices = torch.randperm(len(flat_ct_feature), dtype=torch.long)[:500]
+                # rand_indexs = torch.randint(0, len(matched_pair), (500,), dtype=torch.long).cuda()
+                indices = torch.cat((torch.arange(ni, dtype=torch.long), torch.arange(ni+1, len(matched_pair), dtype=torch.long))).cuda()
+                # indices = torch.cat((torch.arange(ni, dtype=torch.long), torch.arange(ni+1, len(matched_pair), dtype=torch.long)))
+                rand_indexs = indices[torch.randint(0, len(indices), (500,))]
 
+                x, y, z = utils.flatten_to_xyz_tensor(rand_indices)
+                hard_negative_ct_coord = torch.stack([x, y, z], dim=1).float()
+                soft_negative_ct_coord = matched_pair[rand_indexs].float()
 
-    print('validation time : {}'.format(str(time.time() - end)))
+                negative_ct_coord = torch.cat([hard_negative_ct_coord, soft_negative_ct_coord], dim=0).long()
+                # neg_weight = custom_mapping_function(negative_ct_coord)
+                neg_weight = distance_map_image[negative_ct_coord[:,0], negative_ct_coord[:,1], negative_ct_coord[:,2]]
+                # print('neg_weight : ', torch.mean(neg_weight))
+                # print('neg_weight : ', torch.max(neg_weight))
+                # print('neg_weight : ', torch.min(neg_weight))
+                # print()
+                neg_weight = neg_weight + 0.7
+                
+                neg_ctsample1 = flat_ct_feature[rand_indices]
+                neg_ctsample2 = sampled_ct_feature[rand_indexs]
 
-    return val_losses / len(val_loader)
+                neg_ctsample = torch.cat([neg_ctsample1, neg_ctsample2], dim=0)
+                neg_ctsamples.append(neg_ctsample)
+                neg_weights.append(neg_weight)
+
+            neg_ctsamples = torch.stack(neg_ctsamples, dim=0)
+            neg_weights = torch.stack(neg_weights, dim=0)
+
+            # negative_distances = torch.stack(negative_distances, dim=0)
+
+            # neg_ct_index = np.load('../neg_sample.npy')
+            # neg_ctsamples = sampled_ct_feature[neg_ct_index]
+
+            # loss = criterion(scan_anchor, pos_ctsample, neg_ctsamples, negative_distances)
+            loss = criterion(scan_anchor, pos_ctsample, neg_ctsamples, neg_weight)
+            # loss = criterion(scan_anchor, pos_ctsample, neg_ctsamples)
+            loss = loss * matched_gradient
+            loss = loss.mean()
+            
+            val_losses += loss.item()
+
+            print(' {} / {} => Total loss : {} '.format(
+                    i+1, len(val_loader), loss.item())
+                )
+
+        print('validation time : {}'.format(str(time.time() - end)))
+
+        return val_losses / len(val_loader)
 
 if __name__ == '__main__':
     import gc

@@ -128,8 +128,12 @@ def main_worker(gpu, ngpus_per_node, argss):
     # optimizer1 = torch.optim.SGD(ct_model.parameters(), lr=1e-3, momentum=args.momentum, weight_decay=args.weight_decay)
     # optimizer2 = torch.optim.SGD(scan_model.parameters(), lr=5e-2, momentum=args.momentum, weight_decay=args.weight_decay)
 
-    optimizer1 = torch.optim.Adam(ct_model.parameters(), lr=1e-3)
-    optimizer2 = torch.optim.Adam(scan_model.parameters(), lr=5e-2)
+    # optimizer1 = torch.optim.Adam(ct_model.parameters(), lr=1e-3)
+    # optimizer2 = torch.optim.Adam(scan_model.parameters(), lr=5e-2)
+    # optimizer1 = torch.optim.SGD(ct_model.parameters(), lr=1e-3, momentum=0.9)
+    # optimizer2 = torch.optim.SGD(scan_model.parameters(), lr=5e-2, momentum=0.9)
+    optimizer1 = torch.optim.AdamW(ct_model.parameters(), lr=1e-3)
+    optimizer2 = torch.optim.AdamW(scan_model.parameters(), lr=5e-2)
 
     # scheduler1 = lr_scheduler.MultiStepLR(optimizer1, milestones=[60, 200], gamma=0.1)
     # scheduler2 = lr_scheduler.MultiStepLR(optimizer2, milestones=[60, 200], gamma=0.1)

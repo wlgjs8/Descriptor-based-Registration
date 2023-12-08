@@ -197,21 +197,21 @@ def ct2mesh(ct_path, save_path):
 
 
     # otsu_ct_image[:, :, 62:] = 0
-    # vertices, faces, _, _ = marching_cubes(otsu_ct_image, level=0.5)
+    vertices, faces, _, _ = marching_cubes(otsu_ct_image, level=0.5)
 
-    # # vertices[:, 0] = vertices[:, 0] * ps
-    # # vertices[:, 1] = vertices[:, 1] * ps
-    # # vertices[:, 2] = vertices[:, 2] * ss
+    # vertices[:, 0] = vertices[:, 0] * ps
+    # vertices[:, 1] = vertices[:, 1] * ps
+    # vertices[:, 2] = vertices[:, 2] * ss
 
-    # # stl_mesh = mesh.Mesh(np.zeros(faces.shape[0]))
-    # stl_mesh = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
+    # stl_mesh = mesh.Mesh(np.zeros(faces.shape[0]))
+    stl_mesh = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
 
-    # for i, f in enumerate(faces):
-    #     for j in range(3):
-    #         stl_mesh.vectors[i][j] = vertices[f[j], :]
+    for i, f in enumerate(faces):
+        for j in range(3):
+            stl_mesh.vectors[i][j] = vertices[f[j], :]
 
-    # # STL 파일로 저장
-    # stl_mesh.save(save_path)
+    # STL 파일로 저장
+    stl_mesh.save(save_path)
 
 
 
