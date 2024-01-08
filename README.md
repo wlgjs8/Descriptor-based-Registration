@@ -6,7 +6,7 @@ Implementation of "CBCT-Dental Scan Registration via Descriptor Representation L
 ![](fig/framework.png)
 
 ## Representation Learning Guidance via CT gradient
-![](fig/ctGradient.png)
+![](fig/CtGradient.png)
 
 
 ## Prerequisites
