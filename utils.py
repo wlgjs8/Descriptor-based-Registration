@@ -355,8 +355,8 @@ def bef_cal_rank_gradient(sf, sc, cf, mp, mg):
 def epoch_cal_rank_gradient(sf, sc, cf, mp, mg, epoch):
     matched_gradient = mg.clone().detach()
 
-    # MEAN_GRADIENT = torch.mean(matched_gradient)
-    MEAN_GRADIENT = 0.6
+    MEAN_GRADIENT = torch.mean(matched_gradient)
+    # MEAN_GRADIENT = 0.6
     # print('MEAN_GRADIENT : ', MEAN_GRADIENT)
     # print('MEAN_GRADIENT : ', torch.max(matched_gradient))
     # print('MEAN_GRADIENT : ', torch.min(matched_gradient))
@@ -393,7 +393,7 @@ def epoch_cal_rank_gradient(sf, sc, cf, mp, mg, epoch):
         np_single_rank = single_rank[0].cpu().numpy()
         if len(np_single_rank) == 1:
             rank_list.append(np_single_rank[0])
-            if np_single_rank[0] < 1000:
+            if np_single_rank[0] < 8000:
                 top1000_rank_list.append(np_single_rank[0])
 
     rank_list = np.array(rank_list)
@@ -500,8 +500,8 @@ def pred_correspondence(sf,sc,cf,mp,mg,epoch=None):
         line = Line(p1, p2, c="green")
         lines.append(line)
 
-    # show([(mesh1, pc1, mesh2, pc2, lines)], N=1, bg="black", axes=0)
-    show([(mesh1, pc1, mesh2, pc2, lines)], N=1, bg="black", axes=0, interactive=False, new=True, offscreen=True).screenshot('./epoch_correspondence/{}_pred_correspondence.png'.format(epoch))
+    show([(mesh1, pc1, mesh2, pc2, lines)], N=1, bg="black", axes=0)
+    # show([(mesh1, pc1, mesh2, pc2, lines)], N=1, bg="black", axes=0, interactive=False, new=True, offscreen=True).screenshot('./epoch_correspondence/{}_pred_correspondence.png'.format(epoch))
 
 def pred_correspondence_rotation(sf,sc,cf,mp,mg,epoch=None):
     matched_gradient = mg.clone().detach()

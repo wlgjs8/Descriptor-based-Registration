@@ -125,11 +125,12 @@ def main_worker(gpu, ngpus_per_node, argss):
     # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1126 gradient2/model_best.pth')
     
     
-    checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1128 yes bite/model_best.pth')
+    # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1128 yes bite/model_best.pth')
     # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1129 dt/model_best.pth')
     # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1130 weight0.7/model_best.pth')
     # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1202 adamW/model_best.pth')
     # checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1203 adam/model_best.pth')
+    checkpoint_path = os.path.abspath('/home/jeeheon/Documents/point-transformer/exp/s3dis/pointtransformer_repro/model/1207 case01/model_best.pth')
 
 
     checkpoint = torch.load(checkpoint_path)
@@ -204,11 +205,11 @@ def validate(val_loader, ct_model, scan_model, criterion, epoch):
         # print('aft : ', coord[high_curvature_indices].shape)
         # utils.iterative_closet_feature(coord[high_curvature_indices], scan_output[high_curvature_indices], matched_xyz, dense_ct_feature, translation2origin)
         # utils.iterative_closet_feature2(coord[high_curvature_indices], scan_output[high_curvature_indices], matched_xyz, dense_ct_feature, translation2origin)
-        # utils.iterative_closet_feature2(coord, scan_output, matched_xyz, dense_ct_feature, translation2origin)
+        utils.iterative_closet_feature2(coord, scan_output, matched_xyz, dense_ct_feature, translation2origin)
         # utils.iterative_closet_feature_selfsimilarity(coord[high_curvature_indices], scan_output[high_curvature_indices], matched_xyz, dense_ct_feature, translation2origin)
         # utils.ransac_global_registration(coord[high_curvature_indices], scan_output[high_curvature_indices], matched_xyz, dense_ct_feature, translation2origin)
         # utils.ransac_global_registration(coord, scan_output, matched_xyz, dense_ct_feature, translation2origin)
-        utils.ransac_global_registration_whole(coord, scan_output, matched_xyz, dense_ct_feature, translation2origin)
+        # utils.ransac_global_registration_whole(coord, scan_output, matched_xyz, dense_ct_feature, translation2origin)
 
 
 
