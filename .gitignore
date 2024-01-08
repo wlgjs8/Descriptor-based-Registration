@@ -41,7 +41,6 @@ exp*/
 *.json
 *.pickle
 *.txt
-*.png
 *.ply
 *.stl
 *.png
